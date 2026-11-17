@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>تاتينيك · تجربة العميل</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.25.6/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lucide@0.383.0/dist/umd/lucide.min.js"></script>
+<style>body{background:#0A0A0A;margin:0}</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+
+const { useState, useEffect, useRef } = React;
+const LUC = (window.lucide && window.lucide.icons) || {};
+function makeIcon(...names) {
+  return function Icon({ size = 20, className = "", style }) {
+    const name = names.find((n) => LUC[n]);
+    const node = name ? LUC[name] : [];
+    return React.createElement("svg", {
+      xmlns: "http://www.w3.org/2000/svg", width: size, height: size, viewBox: "0 0 24 24",
+      fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round",
+      className, style,
+    }, node.map(([tag, attrs], i) => React.createElement(tag, { key: i, ...attrs })));
+  };
+}
+const Ship = makeIcon("Ship");
+const Crown = makeIcon("Crown");
+const Sparkles = makeIcon("Sparkles");
+const Send = makeIcon("Send");
+const Bell = makeIcon("Bell");
+const Receipt = makeIcon("Receipt");
+const Lock = makeIcon("Lock");
+const Star = makeIcon("Star");
+const Plus = makeIcon("Plus");
+const Minus = makeIcon("Minus");
+const Home = makeIcon("Home", "House");
+const MessageCircle = makeIcon("MessageCircle");
+const ShoppingBag = makeIcon("ShoppingBag");
+const X = makeIcon("X");
+const Sunrise = makeIcon("Sunrise");
+const Sunset = makeIcon("Sunset");
+const Moon = makeIcon("Moon");
+const Delete = makeIcon("Delete");
+const Wine = makeIcon("Wine");
+
+
+/* ============ البيانات ============ */
+const MINYA = { lat: 28.11, lon: 30.75 };
+const TABLE = "طاولة النيل 04";
+const VAULT_PIN = "1234"; // تجريبي
+const MENU = {
+  morning: [
+    { id: "m1", name: "فطور النيل الملكي", price: 220, desc: "بيض بلدي، جبنة قريش، عيش محمص، عسل نحل، وفاكهة موسمية" },
+    { id: "m2", name: "إسبريسو الصباح", price: 70, desc: "شوت قوي من بن محمّص يدوياً" },
+    { id: "m3", name: "كرواسون بالزبدة", price: 85, desc: "مخبوز طازج كل ساعة، بقشرة ذهبية" },
+  ],
+  day: [
+    { id: "d1", name: "لاتيه الذهب", price: 135, desc: "رغوة حريرية مع خيوط زعفران" },
+    { id: "d2", name: "عصير مانجو نيلي", price: 110, desc: "مانجو طازجة مع نعناع ولمسة ليمون" },
+    { id: "d3", name: "ليموناضة الورد والنعناع", price: 95, desc: "منعشة بماء الورد وشرائح البرتقال" },
+    { id: "s1", name: "كريم بروليه", price: 165, desc: "قرمل ذهبي فوق كريمة الفانيليا الفرنسية" },
+    { id: "s2", name: "تشيز كيك التوت", price: 150, desc: "قاعدة بسكويت ومربى توت بري" },
+  ],
+  night: [
+    { id: "n1", name: "موهيتو الكونت", price: 125, desc: "ليمون، نعناع، وسكر قصب" },
+    { id: "n2", name: "كوكتيل تاتينيك", price: 260, desc: "توقيع السفينة: ورد، برتقال، ولمسة شامبانيا" },
+    { id: "n3", name: "قهوة تركي بالهيل", price: 75, desc: "كلاسيك يليق بالسهرة" },
+    { id: "n4", name: "مارتيني النيل", price: 240, desc: "جين فاخر وزيتون محشو" },
+  ],
+};
+const VAULT = [
+  { id: "v1", name: "شامبانيا الملكي", price: 550, desc: "معتّق، غير موجود في القائمة العامة", minTier: 1 },
+  { id: "v2", name: "إسبريسو النيل السري", price: 210, desc: "بن إثيوبي نادر بتحميص خاص", minTier: 0 },
+  { id: "v3", name: "تشكيلة الحلويات الملكية", price: 380, desc: "ثلاث حلويات مختارة من الشيف", minTier: 2 },
+];
+const OFFERS = [
+  { title: "خصم 20% على الحلويات", note: "يوم الخميس", minTier: 0 },
+  { title: "ترقية مجانية لكوكتيل الملكي", note: "للأعضاء الملكيين فقط", minTier: 2 },
+];
+const TIERS = [
+  { name: "ضيف", min: 0 },
+  { name: "نايل", min: 300 },
+  { name: "ملكي", min: 1000 },
+];
+
+/* ============ أدوات الوقت والغروب ============ */
+const dayOfYear = (d) => Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 86400000);
+// تقدير ساعة الغروب في المنيا حسب الشهر (بالساعات العشرية)
+const sunsetHour = (d) => 17.85 + 1.25 * Math.cos((2 * Math.PI * (dayOfYear(d) - 172)) / 365);
+const minsToSunset = (d) => Math.round((sunsetHour(d) - (d.getHours() + d.getMinutes() / 60)) * 60);
+const periodOf = (d) => {
+  const h = d.getHours() + d.getMinutes() / 60;
+  if (h >= 5 && h < 12) return "morning";
+  if (h >= 12 && h < sunsetHour(d)) return "day";
+  return "night";
+};
+const tierOf = (pts) => TIERS.reduce((acc, t, i) => (pts >= t.min ? i : acc), 0);
+const pad = (n) => String(n).padStart(2, "0");
+
+async function fetchWeather() {
+  try {
+    const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${MINYA.lat}&longitude=${MINYA.lon}&current=temperature_2m`);
+    const j = await r.json();
+    return Math.round(j.current.temperature_2m);
+  } catch {
+    return 28; // قيمة احتياطية لو الطقس مش متاح
+  }
+}
+
+/* ============ المضيف الذكي (شات مغذّى بالداتا) ============ */
+function concierge(text, ctx) {
+  const t = text;
+  const has = (...w) => w.some((x) => t.includes(x));
+  const { temp, date, points } = ctx;
+  const tier = TIERS[tierOf(points)].name;
+  const left = minsToSunset(date);
+
+  if (has("ساعات", "مواعيد", "فاتح", "بتقفلوا", "امتى"))
+    return "نفتح يومياً من 12 ظهراً حتى 1 بعد منتصف الليل. نستناك في أي وقت من الساعات دي.";
+  if (has("فين", "مكان", "عنوان", "موقع"))
+    return "تاتينيك على سفينة فوق النيل، على الكورنيش في المنيا. ولو جيت وقت الغروب هتشوف النيل في أحلى صورة.";
+  if (has("غروب", "شمس")) {
+    if (left > 0) return `الغروب بعد حوالي ${left} دقيقة. أنصحك تقعد على الجهة المطلة على الغرب، ومعاك مشروب يناسب الجو.`;
+    return "الشمس غابت بالفعل، بس الكورنيش بالليل له جمال تاني. جرب موهيتو الكونت وخليك على النيل.";
+  }
+  if (has("نقاط", "عضوية", "مستوى", "ترقية")) {
+    const next = TIERS[tierOf(points) + 1];
+    return next
+      ? `مستواك الحالي ${tier} برصيد ${points} نقطة. تحتاج ${next.min - points} نقطة عشان توصل لمستوى ${next.name} وتفتح عروض أكتر.`
+      : `إنت في أعلى مستوى ${tier}. عروضك الحصرية متاحة في الخزنة السرية.`;
+  }
+  if (has("خزنة", "سري", "رمز"))
+    return "الخزنة السرية بتفتح برمز يقولهولك النادل أو الكاشير. فيها عروض وتشكيلة محدودة مش بتتعرض في القائمة.";
+  if (has("حلو", "حلويات", "سكر"))
+    return "كريم بروليه بالقرمل الذهبي هو الأشهر عندنا، ولو عايز حاجة أخف فتشيز كيك التوت بيفرق. أنصحك تكمل بإسبريسو يوازن الطعم.";
+  if (has("تعبان", "زهقان", "مرهق", "تعب"))
+    return "خليك مع لاتيه الذهب، رغوته ناعمة والزعفران يريّح. ولو عايز تبقى أهدى، كرواسون بالزبدة يكمّل الصورة.";
+  if (has("مبسوط", "فرحان", "احتفال", "عيد"))
+    return "مبروك! جرب كوكتيل تاتينيك، وسيب الاحتفال على الكورنيش. ولو عندك مستوى ملكي فيه مفاجأة صغيرة ليك.";
+  if (has("هادي", "حزين", "زعلان"))
+    return "نسمة النيل بتريّح. اطلب قهوة تركي بالهيل واقعد براحتك، ولو احتجت حاجة قولي وأنا جنبك.";
+  if (temp >= 30)
+    return `الجو ${temp} درجة دلوقتي، أنصحك بـ موهيتو الكونت أو عصير مانجو نيلي، وهيبقوا أحلى حاجة للحر.`;
+  if (temp <= 18)
+    return `الجو حوالي ${temp} درجة ونسمة النيل ممكن تبقى تقيلة. قهوة تركي بالهيل أو لاتيه الذهب هيدفوك.`;
+  return `الجو معتدل حوالي ${temp} درجة، جرب لاتيه الذهب أو عصير مانجو نيلي. قولّي مزاجك وأنا أختارلك.`;
+}
+
+/* ============ الأنماط والحركة ============ */
+const STYLES = `
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
+body { font-family: 'Cairo', sans-serif; background:#0A0A0A; }
+.glass { background: rgba(255,255,255,0.06); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(212,175,55,0.22); }
+.gold-text { background: linear-gradient(100deg,#A8851E 0%,#F5E08A 30%,#D4AF37 50%,#F5E08A 70%,#A8851E 100%); background-size: 220% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: shimmer 4s linear infinite; }
+.gold-btn { background: linear-gradient(135deg,#F5E08A,#D4AF37,#A8851E); color:#0A0A0A; }
+@keyframes shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+@keyframes fadeUp { from { opacity:0; transform: translateY(14px); } to { opacity:1; transform:none; } }
+.fade-up { animation: fadeUp .5s ease both; }
+@keyframes bob { 0%,100% { transform: translateY(0) rotate(-1deg); } 50% { transform: translateY(-6px) rotate(1deg); } }
+.bob { animation: bob 4s ease-in-out infinite; }
+@keyframes waveA { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@keyframes waveB { from { transform: translateX(-50%); } to { transform: translateX(0); } }
+.wave-a { animation: waveA 9s linear infinite; }
+.wave-b { animation: waveB 14s linear infinite; }
+@keyframes glow { 0%,100% { box-shadow: 0 0 0 0 rgba(212,175,55,.35); } 50% { box-shadow: 0 0 0 12px rgba(212,175,55,0); } }
+.glow { animation: glow 2.4s infinite; }
+@keyframes dot { 0%,80%,100% { opacity:.2; } 40% { opacity:1; } }
+.dot { animation: dot 1.2s infinite; }
+`;
+
+/* ============ زخرفة السفينة والموج ============ */
+function ShipHeader({ mode, temp }) {
+  const sky = {
+    morning: "from-[#2a1d00] via-[#0A0A0A] to-[#0A0A0A]",
+    day: "from-[#101010] via-[#0A0A0A] to-[#0A0A0A]",
+    night: "from-[#03050c] via-[#070b18] to-[#0A0A0A]",
+    sunset: "from-[#4a2300] via-[#1f0e00] to-[#0A0A0A]",
+  }[mode];
+  const orb = { morning: "#F5E08A", day: "#FFF3C4", night: "#E8E4C9", sunset: "#FF9A3C" }[mode];
+  return (
+    <div className={`relative overflow-hidden rounded-b-[2.5rem] bg-gradient-to-b ${sky} pt-8 pb-20 px-5`}>
+      <div className="absolute top-16 right-8 w-28 h-28 rounded-full blur-2xl opacity-50" style={{ background: orb }} />
+      <div className="flex items-center justify-between relative z-10">
+        <div className="flex items-center gap-2">
+          <Crown className="text-[#D4AF37]" size={20} />
+          <span className="gold-text font-black text-lg">تاتينيك</span>
+        </div>
+        <span className="glass rounded-full px-3 py-1 text-xs text-[#D4AF37]">{TABLE}</span>
+      </div>
+      <div className="relative z-10 flex flex-col items-center mt-4 bob">
+        <svg viewBox="0 0 260 120" className="w-72 drop-shadow-[0_0_22px_rgba(212,175,55,.35)]">
+          <defs>
+            <linearGradient id="goldHull" x1="0" x2="1">
+              <stop offset="0" stopColor="#A8851E" />
+              <stop offset=".5" stopColor="#F5E08A" />
+              <stop offset="1" stopColor="#A8851E" />
+            </linearGradient>
+          </defs>
+          <line x1="130" y1="8" x2="130" y2="62" stroke="#D4AF37" strokeWidth="2" />
+          <path d="M130 12 L184 56 L130 56 Z" fill="#D4AF37" fillOpacity=".3" stroke="#D4AF37" strokeWidth="1" />
+          <path d="M126 16 L76 56 L126 56 Z" fill="#D4AF37" fillOpacity=".18" stroke="#D4AF37" strokeWidth="1" />
+          <rect x="86" y="48" width="88" height="22" rx="4" fill="#0A0A0A" stroke="url(#goldHull)" strokeWidth="1.5" />
+          {[96, 111, 126, 141, 156, 165].map((x) => (
+            <rect key={x} x={x} y="54" width="8" height="9" rx="2" fill="#F5E08A" fillOpacity=".85" />
+          ))}
+          <path d="M26 70 L234 70 L210 102 Q130 116 50 102 Z" fill="url(#goldHull)" />
+          <line x1="50" y1="84" x2="210" y2="84" stroke="#0A0A0A" strokeWidth="1.2" strokeOpacity=".45" />
+          <path d="M40 112 Q130 124 220 112" stroke="#D4AF37" strokeWidth="1" fill="none" strokeOpacity=".35" />
+        </svg>
+        <h1 className="gold-text font-black text-2xl mt-2">أهلاً بك على السفينة</h1>
+        <p className="text-xs text-white/50 mt-1">النيل {temp >= 30 ? "مشمس ونشيط" : temp <= 18 ? "هادي ومنعش" : "هادي ومريح"} · {temp}° في المنيا</p>
+      </div>
+      <div className="absolute bottom-0 left-0 w-[200%] h-16 opacity-70">
+        <svg className="wave-a absolute bottom-0 w-full h-full" viewBox="0 0 1440 120" preserveAspectRatio="none">
+          <path d="M0,60 C120,20 240,100 360,60 C480,20 600,100 720,60 C840,20 960,100 1080,60 C1200,20 1320,100 1440,60 L1440,120 L0,120Z" fill="#D4AF37" fillOpacity="0.18" />
+        </svg>
+        <svg className="wave-b absolute bottom-0 w-full h-full" viewBox="0 0 1440 120" preserveAspectRatio="none">
+          <path d="M0,80 C160,40 280,110 440,80 C600,50 720,110 880,80 C1040,50 1160,110 1320,80 C1380,70 1420,80 1440,80 L1440,120 L0,120Z" fill="#D4AF37" fillOpacity="0.28" />
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+/* ============ التطبيق ============ */
+function App() {
+  const [tab, setTab] = useState("home");
+  const [now, setNow] = useState(new Date());
+  const [temp, setTemp] = useState(28);
+  const [cart, setCart] = useState({});
+  const [points, setPoints] = useState(0);
+  const [vaultOpen, setVaultOpen] = useState(false);
+  const [toast, setToast] = useState("");
+  const [afterMsg, setAfterMsg] = useState("");
+  const [showCart, setShowCart] = useState(false);
+  const [split, setSplit] = useState(1);
+
+  useEffect(() => {
+    fetchWeather().then(setTemp);
+    const id = setInterval(() => setNow(new Date()), 30000);
+    return () => clearInterval(id);
+  }, []);
+
+  const mode = (() => {
+    const left = minsToSunset(now);
+    if (left <= 60 && left > -30) return "sunset";
+    return periodOf(now) === "morning" ? "morning" : periodOf(now) === "night" ? "night" : "day";
+  })();
+
+  const allItems = [...MENU.morning, ...MENU.day, ...MENU.night, ...VAULT];
+  const period = periodOf(now);
+  const items = MENU[period];
+  const tier = tierOf(points);
+
+  const notify = (m) => { setToast(m); setTimeout(() => setToast(""), 2400); };
+  const change = (id, d) =>
+    setCart((c) => {
+      const q = (c[id] || 0) + d;
+      const n = { ...c };
+      if (q <= 0) delete n[id]; else n[id] = q;
+      return n;
+    });
+  const cartItems = Object.entries(cart).map(([id, q]) => ({ ...allItems.find((i) => i.id === id), q }));
+  const count = cartItems.reduce((s, i) => s + i.q, 0);
+  const total = cartItems.reduce((s, i) => s + i.price * i.q, 0);
+  const submit = () => {
+    setPoints((p) => p + Math.round(total / 10));
+    setCart({});
+    setShowCart(false);
+    notify("تم إرسال طلبك للمطبخ ✨ وكسبت نقاط جديدة");
+    setAfterMsg("شكراً لزيارتك على السفينة. نتمنى إن الطلب يكون على ذوقك، وفي زيارتك الجاية هنجهزلك تشكيلة تناسبك.");
+  };
+
+  return (
+    <>
+      <style>{STYLES}</style>
+      <div dir="rtl" className="min-h-screen max-w-md mx-auto bg-[#0A0A0A] text-white relative pb-32">
+        {tab === "home" && (
+          <div className="fade-up">
+            <ShipHeader mode={mode} temp={temp} />
+            <div className="px-5 -mt-8 relative z-10">
+              {afterMsg && (
+                <div className="glass rounded-2xl p-4 mb-4 fade-up flex gap-3">
+                  <Sparkles className="text-[#D4AF37] shrink-0" size={18} />
+                  <p className="text-sm leading-relaxed">{afterMsg}</p>
+                </div>
+              )}
+              {minsToSunset(now) > 0 && minsToSunset(now) <= 10 && (
+                <div className="glow rounded-2xl p-4 mb-4 gold-btn fade-up">
+                  <p className="font-black">الغروب بعد {minsToSunset(now)} دقيقة</p>
+                  <p className="text-sm">طاولتك على الجهة الغربية جاهزة لك، والنيل في أحلى لحظاته.</p>
+                </div>
+              )}
+              {/* عداد الغروب */}
+              <div className="glass rounded-2xl p-4 flex items-center gap-3 mb-4">
+                {mode === "sunset" ? <Sunset className="text-[#D4AF37]" /> : period === "morning" ? <Sunrise className="text-[#D4AF37]" /> : <Moon className="text-[#D4AF37]" />}
+                <div className="flex-1">
+                  <p className="text-sm font-bold">
+                    {minsToSunset(now) > 0 ? `الغروب بعد ${minsToSunset(now)} دقيقة` : "الغروب خلص، والنيل بالليل له جمال تاني"}
+                  </p>
+                  <p className="text-xs text-white/50">الجو الآن {temp}° في المنيا</p>
+                </div>
+              </div>
+
+              {/* المستوى والنقاط */}
+              <div className="glass rounded-2xl p-4 mb-4">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="font-black gold-text flex items-center gap-1"><Star size={16} className="text-[#D4AF37]" /> مستوى {TIERS[tier].name}</span>
+                  <span className="text-xs text-white/60">{points} نقطة</span>
+                </div>
+                <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+                  <div className="h-full gold-btn transition-all duration-700" style={{ width: `${tier === 2 ? 100 : Math.min(100, ((points - TIERS[tier].min) / (TIERS[tier + 1].min - TIERS[tier].min)) * 100)}%` }} />
+                </div>
+              </div>
+
+              {/* القائمة حسب الوقت */}
+              <h3 className="text-sm text-white/60 mb-3">
+                {period === "morning" ? "قائمة الصباح" : period === "day" ? "قائمة النهار" : "قائمة الليل"}
+              </h3>
+              <div className="flex flex-col gap-3 mb-5">
+                {items.map((item, idx) => (
+                  <div key={item.id} className="glass rounded-2xl p-4 flex justify-between items-center fade-up" style={{ animationDelay: `${idx * 90}ms` }}>
+                    <div className="pl-3">
+                      <h3 className="font-bold">{item.name}</h3>
+                      <p className="text-xs text-white/60 mt-1">{item.desc}</p>
+                      <p className="text-[#D4AF37] font-bold mt-2">{item.price} ج.م</p>
+                    </div>
+                    {cart[item.id] ? <QtyControl qty={cart[item.id]} onMinus={() => change(item.id, -1)} onPlus={() => change(item.id, 1)} /> : (
+                      <button onClick={() => change(item.id, 1)} className="gold-btn w-10 h-10 rounded-full flex items-center justify-center active:scale-90 transition"><Plus size={18} /></button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <button onClick={() => notify("تم إبلاغ النادل 🛎️")} className="glass rounded-2xl py-4 flex flex-col items-center gap-2 active:scale-95 transition">
+                  <Bell className="text-[#D4AF37]" size={22} /><span className="text-sm font-semibold">اطلب النادل</span>
+                </button>
+                <button onClick={() => notify("تم طلب الفاتورة 🧾")} className="glass rounded-2xl py-4 flex flex-col items-center gap-2 active:scale-95 transition">
+                  <Receipt className="text-[#D4AF37]" size={22} /><span className="text-sm font-semibold">اطلب الفاتورة</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {tab === "chat" && <ChatScreen ctx={{ temp, date: now, points }} />}
+
+        {tab === "vault" && (
+          <div className="px-5 pt-8 fade-up">
+            {!vaultOpen ? <VaultLock onOpen={() => setVaultOpen(true)} /> : (
+              <>
+                <h2 className="text-xl font-black gold-text mb-1">مرحباً بيك في الخزنة</h2>
+                <p className="text-xs text-white/50 mb-5">مستوى {TIERS[tier].name}</p>
+                {tier >= 2 && (
+                  <div className="glass rounded-2xl p-4 mb-6">
+                    <p className="text-xs text-[#D4AF37] mb-1">وصفة الشهر من الشيف · للمستوى الملكي</p>
+                    <p className="font-bold">[اسم الوصفة]</p>
+                    <p className="text-xs text-white/60 mt-1">[تُكتب مع صاحب المطعم]</p>
+                  </div>
+                )}
+                <h3 className="text-sm text-white/60 mb-3">عروض</h3>
+                <div className="flex flex-col gap-3 mb-6">
+                  {OFFERS.map((o) => (
+                    <div key={o.title} className={`glass rounded-2xl p-4 flex gap-3 ${tier < o.minTier ? "opacity-40" : ""}`}>
+                      <Star className="text-[#D4AF37] shrink-0" size={18} />
+                      <div><p className="font-bold">{o.title}</p><p className="text-xs text-white/60">{o.note}</p></div>
+                    </div>
+                  ))}
+                </div>
+                <h3 className="text-sm text-white/60 mb-3">مشروبات حصرية</h3>
+                {VAULT.map((item) => (
+                  <div key={item.id} className={`glass rounded-2xl p-4 mb-3 flex justify-between items-center ${tier < item.minTier ? "opacity-40" : ""}`}>
+                    <div className="pl-3"><h3 className="font-bold">{item.name}</h3><p className="text-xs text-white/60">{item.desc}</p><p className="text-[#D4AF37] font-bold mt-1">{item.price} ج.م</p></div>
+                    {tier >= item.minTier && (cart[item.id] ? <QtyControl qty={cart[item.id]} onMinus={() => change(item.id, -1)} onPlus={() => change(item.id, 1)} /> : (
+                      <button onClick={() => change(item.id, 1)} className="gold-btn w-10 h-10 rounded-full flex items-center justify-center"><Plus size={18} /></button>
+                    ))}
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+        )}
+
+        {count > 0 && tab !== "chat" && (
+          <button onClick={() => setShowCart(true)} className="gold-btn glow fixed bottom-24 left-1/2 -translate-x-1/2 w-[90%] max-w-md rounded-2xl py-4 px-5 flex items-center justify-between font-bold z-30 active:scale-95 transition">
+            <span className="flex items-center gap-2"><ShoppingBag size={20} /> عرض السلة ({count})</span>
+            <span>{total} ج.م</span>
+          </button>
+        )}
+
+        <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md glass backdrop-blur-xl flex justify-around py-3 z-40">
+          <NavBtn icon={Home} label="الرئيسية" active={tab === "home"} onClick={() => setTab("home")} />
+          <NavBtn icon={Lock} label="الخزنة" active={tab === "vault"} onClick={() => setTab("vault")} />
+          <NavBtn icon={MessageCircle} label="المضيف" active={tab === "chat"} onClick={() => setTab("chat")} />
+        </nav>
+
+        {showCart && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end justify-center" onClick={() => setShowCart(false)}>
+            <div onClick={(e) => e.stopPropagation()} className="glass w-full max-w-md rounded-t-3xl p-6 bg-[#111]/90 fade-up">
+              <div className="flex justify-between items-center mb-4"><h3 className="font-bold gold-text text-lg">طلبك</h3><button onClick={() => setShowCart(false)}><X size={20} /></button></div>
+              {cartItems.map((i) => (
+                <div key={i.id} className="flex justify-between items-center py-3 border-b border-white/10">
+                  <div><p className="font-semibold">{i.name}</p><p className="text-xs text-[#D4AF37]">{i.price * i.q} ج.م</p></div>
+                  <QtyControl qty={i.q} onMinus={() => change(i.id, -1)} onPlus={() => change(i.id, 1)} />
+                </div>
+              ))}
+              <div className="glass rounded-xl p-3 mt-4 flex justify-between items-center">
+                <span className="text-sm">تقسيم الحساب بين</span>
+                <QtyControl qty={split} onMinus={() => setSplit((s) => Math.max(1, s - 1))} onPlus={() => setSplit((s) => s + 1)} />
+              </div>
+              <p className="text-xs text-white/60 mt-2 mb-2">نصيب كل شخص: {Math.ceil(total / split)} ج.م</p>
+              <div className="flex justify-between font-black text-lg mt-4 mb-5"><span>الإجمالي</span><span className="text-[#D4AF37]">{total} ج.م</span></div>
+              <button onClick={submit} className="gold-btn w-full py-4 rounded-2xl font-bold active:scale-95 transition">أرسل الطلب</button>
+            </div>
+          </div>
+        )}
+
+        {toast && (
+          <div className="fixed top-6 left-1/2 -translate-x-1/2 glass rounded-2xl px-5 py-3 text-sm z-[60] fade-up">{toast}</div>
+        )}
+      </div>
+    </>
+  );
+}
+
+/* ============ المضيف ============ */
+function ChatScreen({ ctx }) {
+  const [msgs, setMsgs] = useState([{ from: "bot", text: "أهلاً بيك في تاتينيك. قولّي مزاجك أو اسألني عن أي حاجة، وأنا معاك." }]);
+  const [input, setInput] = useState("");
+  const [typing, setTyping] = useState(false);
+
+  const send = (text) => {
+    const m = (text ?? input).trim();
+    if (!m || typing) return;
+    setMsgs((x) => [...x, { from: "user", text: m }]);
+    setInput("");
+    setTyping(true);
+    setTimeout(() => {
+      setMsgs((x) => [...x, { from: "bot", text: concierge(m, ctx) }]);
+      setTyping(false);
+    }, 900);
+  };
+
+  const chips = ["أنا تعبان", "أنا مبسوط", "الجو حر", "عايز حاجة حلوة", "امتى الغروب؟", "نقاطي كام؟"];
+
+  return (
+    <div className="px-5 pt-8 flex flex-col h-[calc(100vh-120px)] fade-up">
+      <div className="flex items-center gap-2 mb-4"><Sparkles className="text-[#D4AF37]" size={20} /><h2 className="text-xl font-black gold-text">المضيف</h2></div>
+      <div className="flex-1 overflow-y-auto flex flex-col gap-3 pb-4">
+        {msgs.map((m, i) => (
+          <div key={i} className={`max-w-[82%] rounded-2xl px-4 py-3 text-sm leading-relaxed fade-up ${m.from === "user" ? "self-start gold-btn" : "self-end glass"}`}>{m.text}</div>
+        ))}
+        {typing && (
+          <div className="self-end glass rounded-2xl px-4 py-3 flex gap-1">
+            {[0, 1, 2].map((d) => <span key={d} className="dot w-2 h-2 rounded-full bg-[#D4AF37]" style={{ animationDelay: `${d * 150}ms` }} />)}
+          </div>
+        )}
+      </div>
+      <div className="flex gap-2 overflow-x-auto pb-3">
+        {chips.map((c) => <button key={c} onClick={() => send(c)} className="glass whitespace-nowrap rounded-full px-3 py-1.5 text-xs text-[#D4AF37] active:scale-95 transition">{c}</button>)}
+      </div>
+      <div className="glass rounded-full flex items-center gap-2 p-2 mb-2">
+        <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()} placeholder="اكتب رسالتك..." className="flex-1 bg-transparent outline-none px-3 text-sm placeholder:text-white/40" />
+        <button onClick={() => send()} className="gold-btn w-10 h-10 rounded-full flex items-center justify-center active:scale-90 transition"><Send size={16} /></button>
+      </div>
+    </div>
+  );
+}
+
+/* ============ مكوّنات مساعدة ============ */
+function VaultLock({ onOpen }) {
+  const [pin, setPin] = useState("");
+  const [shake, setShake] = useState(false);
+  const press = (d) => {
+    if (pin.length >= 4) return;
+    const n = pin + d;
+    setPin(n);
+    if (n.length === 4) {
+      setTimeout(() => {
+        if (n === VAULT_PIN) onOpen();
+        else { setShake(true); setTimeout(() => { setShake(false); setPin(""); }, 400); }
+      }, 150);
+    }
+  };
+  return (
+    <div className="flex flex-col items-center">
+      <div className="glow w-20 h-20 rounded-full glass flex items-center justify-center mb-4"><Lock className="text-[#D4AF37]" size={32} /></div>
+      <h2 className="text-xl font-black gold-text">الخزنة السرية</h2>
+      <p className="text-xs text-white/50 mt-2 text-center">أدخل الرمز اللي يقولهولك النادل أو الكاشير</p>
+      <div className={`flex gap-4 my-7 ${shake ? "animate-pulse" : ""}`}>
+        {[0, 1, 2, 3].map((i) => <div key={i} className={`w-4 h-4 rounded-full border border-[#D4AF37] ${i < pin.length ? "bg-[#D4AF37]" : ""}`} />)}
+      </div>
+      <div className="grid grid-cols-3 gap-4 w-64">
+        {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((d) => (
+          <button key={d} onClick={() => press(d)} className="glass rounded-full h-16 text-xl font-bold active:scale-90 transition">{d}</button>
+        ))}
+        <div />
+        <button onClick={() => press("0")} className="glass rounded-full h-16 text-xl font-bold active:scale-90 transition">0</button>
+        <button onClick={() => setPin(pin.slice(0, -1))} className="h-16 text-white/50 text-sm">مسح</button>
+      </div>
+      <p className="text-[11px] text-white/30 mt-6">للتجربة: 1234</p>
+    </div>
+  );
+}
+
+function QtyControl({ qty, onMinus, onPlus }) {
+  return (
+    <div className="flex items-center gap-3 glass rounded-full px-2 py-1">
+      <button onClick={onMinus} className="w-7 h-7 flex items-center justify-center text-[#D4AF37] active:scale-90"><Minus size={16} /></button>
+      <span className="font-bold w-4 text-center">{qty}</span>
+      <button onClick={onPlus} className="w-7 h-7 flex items-center justify-center text-[#D4AF37] active:scale-90"><Plus size={16} /></button>
+    </div>
+  );
+}
+
+function NavBtn({ icon: Icon, label, active, onClick }) {
+  return (
+    <button onClick={onClick} className={`flex flex-col items-center gap-1 px-4 transition ${active ? "text-[#D4AF37]" : "text-white/50"}`}>
+      <Icon size={20} /><span className="text-[11px] font-semibold">{label}</span>
+    </button>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
